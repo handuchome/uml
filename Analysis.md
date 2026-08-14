@@ -32,7 +32,9 @@ classDiagram
 | Entity | Responsibility | Notes |
 |---|---|---|
 | `RawFeeRecord` | Input ban đầu | AppCode cụ thể: Digibank, Thẻ, IB TC. |
+| `ProcessedFeeTask` | Xử lý trung gian | Chứa `LoaiPhi`, `SoTienPhi`, `RetryCount`, `Status`, `NgayPhaiThu`. |
 | `CalendarConstraint` | Policy / Rule | Chứa logic xác định mùng 1 Âm lịch và Nghỉ lễ. |
+| `FeeReport` | Kết quả tra cứu | Xuất 3 loại báo cáo: Chi tiết, Tổng hợp, Không đủ số dư (US-06). |
 
 ## 2. Business rules
 
@@ -64,5 +66,6 @@ flowchart TD
 
 | ID | Topic | What is known | What is open |
 |---|---|---|---|
+| OA-01 | Scope Out | Hoàn phí, thu tiền mặt, hạch toán kế toán | Chi tiết xem [Domain.md - Out of Scope](Domain.md#2-out-of-scope) |
 | OA-05 | Cơ chế dời lịch (Reschedule) | Không thu vào Lễ / mùng 1 Âm lịch. | Nếu bị dời lịch, hệ thống sẽ tự động chạy bù vào ngày làm việc tiếp theo, hay gộp vào kỳ thu của tháng sau? (Giả định: Chạy bù vào ngày làm việc kế tiếp). |
 | OA-06 | Nguồn dữ liệu Lịch | Cần chặn theo Âm lịch. | Ngân hàng có sẵn internal API cho Âm lịch/Lễ, hay hệ thống này phải tự build một bảng Calendar Config riêng? |

@@ -5,13 +5,24 @@ Source of truth: [Domain.md](Domain.md).
 **Domain.** Hệ thống Thu các loại phí dịch vụ cho Ngân hàng.
 
 **In scope.**
-- Tiếp nhận danh sách từ 3 mảng: Digibank+SMS, Thẻ, IB TC (Internet Banking Tổ chức).
-- Xử lý logic phí thực tế (>0).
-- Ràng buộc thời gian: Không thu vào mùng 1 Âm lịch và Nghỉ lễ.
-- Trích nợ Core Banking.
-- AutoRetry tối đa 10 lần.
-- Gửi tin nhắn SMS sau khi thu.
-- Build 01 màn hình chức năng tra cứu (3 loại báo cáo).
+| # | Thành phần | Chi tiết |
+|---|---|---|
+| 1 | Tiếp nhận danh sách từ 3 mảng | Digibank+SMS, Thẻ, IB TC (Internet Banking Tổ chức) |
+| 2 | Lọc danh sách miễn giảm | Xử lý logic phí thực tế (chỉ thu nếu Số tiền > 0) |
+| 3 | Kiểm tra lịch thu phí tự động | Không thu vào mùng 1 Âm lịch và ngày nghỉ lễ (rule bắt buộc) |
+| 4 | Trích nợ Core Banking | Gửi lệnh rút tiền qua Core Banking |
+| 5 | Cơ chế AutoRetry | Tự động thử lại tối đa 10 lần (khi lỗi không đủ số dư) |
+| 6 | Thông báo SMS | Gửi tin nhắn SMS sau khi thu thành công |
+| 7 | Màn hình tra cứu | Build 1 UI dành cho Bank Staff với 3 loại báo cáo: Chi tiết, Tổng hợp, Không đủ số dư |
+
+**Out of scope.**
+| # | Thành phần | Lý do |
+|---|---|---|
+| 1 | Hạch toán kế toán tổng hợp | Do kế toán xử lý riêng |
+| 2 | Thu phí tiền mặt tại quầy | Nằm ngoài kênh tự động |
+| 3 | Hoàn phí (Refund) | Không trong phạm vi hiện tại |
+| 4 | Tạo/Quản lý tham số miễn giảm | Quản lý trên hệ thống Params gốc |
+| 5 | Phân quyền user phức tạp | Chỉ tập trung vào chức năng tra cứu (quyền cơ bản) |
 
 ---
 

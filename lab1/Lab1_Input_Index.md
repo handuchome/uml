@@ -9,63 +9,68 @@
 
 | Field | Your value |
 |-------|------------|
-| Group | Team 1 |
+| Group | Team 1 (Nguyễn Nhật Trường, Hà Ngọc Bắc, Dương Đỗ Minh, Hàn Ngọc Đức) |
 | Topic / initiative name | Bank Service Fee Collection System |
 | System-in-focus | Fee Collection Hub |
-| Goal | Centralize and automate fee collection across multiple banking channels with strict calendar constraints and retry mechanisms. |
+| Goal | Centralize and automate fee collection across multiple channels with strict calendar constraints and retry mechanisms. |
 | Outcome (measurable) | 100% compliance with holiday/lunar constraints, zero manual retry effort for insufficient funds (up to 10 times). |
-| Product | Fee Collection Engine & Inquiry Portal |
-| Contract | API Contracts for Source Ingestion, Core Debit Execution, and SMS Trigger. |
-| Baseline → target | Fragmented, manual collection → Centralized, automated, compliant collection engine with CQRS reporting. |
-| In scope | Ingestion (Digibank, Card, IB TC); Discount filtering (>0); Calendar check (Lunar 1st/Holiday); Core Banking debit; AutoRetry (max 10); SMS notification; Staff UI (3 reports). |
-| Out of scope | Ledger accounting; OTC cash collection; Refunds; Param creation/management; Complex IAM. |
+| Product | Fee Collection Hub |
+| Contract | API Contracts for source ingestion, core debit execution, and SMS trigger. |
+| Baseline → target | Fragmented manual collection → Centralized, automated, compliant collection engine with CQRS reporting. |
+| In scope | `Digital Channel Source`, `Card Channel Source`, `Corporate Channel Source`, `Fee Ingestion Service`, `Fee Processing Engine`, `Params System`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `SMS Gateway`, `Fee Report API`, `Fee Inquiry Web App`, `Fee Database`, `Report Database`, `API Gateway`, `Message Broker`. |
+| Out of scope | Ledger accounting, OTC cash collection, refunds, param creation/management, complex IAM. |
 
 ## I-2. Actors
 
 | Name | ArchiMate | C4 (Person or —) | Role in the process |
 |------|-----------|------------------|---------------------|
-| Bank Staff | Business Actor | Person | Tra cứu kết quả thu phí (Chi tiết, Tổng hợp, Lỗi số dư) trên UI. |
+| Bank Staff | Business Actor | Person | View fee collection results (details, summary, insufficient funds) on the UI. |
+| Customer | Business Actor | Person | Receive SMS notifications upon successful fee deduction. |
 
 ## I-3. External systems
 
 | Name (simulated) | Responsibility |
 |------------------|----------------|
-| Source System Digibank | Cung cấp danh sách phí mảng Digibank & SMS. |
-| Source System Card | Cung cấp danh sách phí mảng Thẻ. |
-| Source System IB TC | Cung cấp danh sách phí mảng Internet Banking Tổ chức. |
-| Params System | Cung cấp danh sách/rule miễn giảm phí. |
-| Calendar Service | Cung cấp API kiểm tra mùng 1 Âm lịch và Nghỉ lễ quốc gia. |
-| Core Banking | Thực thi giao dịch trích nợ tài khoản (Debit). |
-| SMS Gateway | Nhận lệnh và gửi tin nhắn SMS cho khách hàng. |
+| Digital Channel Source | Provide digital fee lists. |
+| Card Channel Source | Provide card fee lists. |
+| Corporate Channel Source | Provide corporate fee lists. |
+| Params System | Provide discount rules and fee configuration. |
+| Calendar Service | Provide API to check Lunar 1st and national holidays. |
+| Core Banking | Execute account debit transactions. |
+| SMS Gateway | Receive commands and deliver SMS to the Customer. |
 
 ## I-4. Internal containers
 
 | Name | Responsibility |
 |------|----------------|
-| Fee Ingestion Service | Tiếp nhận danh sách phí từ 3 nguồn, chuẩn hóa dữ liệu. |
-| Fee Processing Engine | Áp dụng chính sách từ Params System, lọc phí > 0. |
-| Calendar Gate | Chặn/Kiểm tra lịch thu phí trước khi gửi lệnh thực thi. |
-| Execution Engine | Giao tiếp với Core Banking để thực hiện trích nợ. |
-| Retry Scheduler | Lập lịch chạy lại (AutoRetry) cho các task lỗi số dư. |
-| Notification Service | Kích hoạt gửi tin nhắn sang SMS Gateway khi thu thành công. |
-| Fee Report API | Backend cung cấp dữ liệu báo cáo (Read Store). |
-| Fee Inquiry Web App | Giao diện tra cứu dành cho Bank Staff. |
-| Fee Database | Lưu trữ trạng thái xử lý chính (Write Store). |
-| Report Database | Lưu trữ dữ liệu đã đồng bộ phục vụ tra cứu (Read Store). |
+| API Gateway | Route inquiry traffic to the reporting API. |
+| Message Broker | Decouple execution success events from notifications. |
+| Fee Ingestion Service | Ingest fee lists from the three source systems. |
+| Fee Processing Engine | Apply policies from Params System and filter fees > 0. |
+| Calendar Gate | Validate execution dates against holidays. |
+| Execution Engine | Communicate with Core Banking for debits. |
+| Retry Scheduler | Schedule AutoRetry for insufficient fund tasks. |
+| Notification Service | Consume success events and trigger SMS Gateway. |
+| Fee Report API | Provide backend reporting data (Read Store). |
+| Fee Inquiry Web App | Provide the UI for Bank Staff. |
+| Fee Database | Store main processing state (Write Store). |
+| Report Database | Store synchronized data for inquiries (Read Store). |
 
 ## I-5. Business process (happy path)
 
 **Object:** `ProcessedFeeTask`
 
-1. Fee Ingestion Service nhận danh sách từ các Source System và chuyển cho Fee Processing Engine.
-2. Fee Processing Engine tính toán, tạo ProcessedFeeTask với số tiền > 0.
-3. Calendar Gate kiểm tra ngày hiện tại, cho phép đi tiếp nếu không phải Lễ/Mùng 1 Âm lịch.
-4. Execution Engine gửi lệnh trích nợ vào Core Banking thành công.
-5. Notification Service gửi SMS; hệ thống đồng bộ dữ liệu sang Report Database.
+1. `Fee Ingestion Service` receives lists from `Digital Channel Source`, `Card Channel Source`, and `Corporate Channel Source`.
+2. `Fee Processing Engine` requests rules from `Params System`, calculates amounts, and creates `ProcessedFeeTask` for amounts > 0.
+3. `Calendar Gate` validates the current date; allows processing if not a holiday/lunar 1st.
+4. `Execution Engine` sends a debit command to `Core Banking` successfully.
+5. `Execution Engine` publishes a success event to `Message Broker`.
+6. `Notification Service` consumes the event and commands `SMS Gateway` to send an SMS to `Customer`.
+7. System syncs state to `Report Database`, allowing `Bank Staff` to view results via `Fee Inquiry Web App` and `Fee Report API`.
 
 **Principle / hard rules:**
-- TUYỆT ĐỐI KHÔNG gửi lệnh trích nợ vào mùng 1 Âm lịch hoặc ngày Nghỉ lễ.
-- Phải chia tách luồng ghi (Fee Database) và luồng đọc (Report Database).
+- Absolutely no debit commands to `Core Banking` on lunar 1st or holidays.
+- `Fee Inquiry Web App` must not query `Core Banking` or `Fee Database` directly.
 
 ## I-6. Named object states (use exactly on UML State)
 
@@ -73,14 +78,16 @@
 
 | State | Trigger / event | Next state | Terminal? |
 |-------|-----------------|------------|-----------|
-| Created | Fee > 0 validated (BR-01) | Pending_Calendar | No |
-| Pending_Calendar | Check Calendar (Pass) | Pending_Execution | No |
-| Pending_Calendar | Check Calendar (Fail) | Rescheduled | No |
+| Created | Fee > 0 validated | Pending_Calendar | No |
+| Pending_Calendar | Calendar check passed | Pending_Execution | No |
+| Pending_Calendar | Calendar check failed (CON.2) | Rescheduled | No |
 | Rescheduled | Next working day reached | Pending_Calendar | No |
-| Pending_Execution | Debit Success | Completed | Yes |
-| Pending_Execution | Debit Fail (Insufficient Funds) | Retrying | No |
-| Retrying | Retry limits not reached (<10) | Pending_Execution | No |
-| Retrying | Retry limits reached (10) | Failed_Permanently | Yes |
+| Pending_Execution | Debit fail (insufficient funds) | Retrying | No |
+| Pending_Execution | Debit success | Completed | No |
+| Retrying | Retry limit < 10 | Pending_Execution | No |
+| Retrying | Retry limit = 10 (CON.3) | Failed_Permanently | No |
+| Completed | None | None | Yes |
+| Failed_Permanently | None | None | Yes |
 
 **Terminal states:**
 - Completed
@@ -90,46 +97,49 @@
 
 | Data object | Meaning | Source of truth (one container or external) |
 |-------------|---------|---------------------------------------------|
-| RawFeeRecord | Dữ liệu gốc cần thu | Source System Digibank / Card / IB TC |
-| ProcessedFeeTask | Trạng thái khoản thu | Fee Database |
-| CalendarConstraint| Rule nghỉ lễ/Âm lịch | Calendar Service |
-| FeeReport | Dữ liệu tra cứu | Report Database |
+| Digital RawFeeRecord | Digital fee lists | Digital Channel Source |
+| Card RawFeeRecord | Card fee lists | Card Channel Source |
+| Corporate RawFeeRecord | Corporate fee lists | Corporate Channel Source |
+| ProcessedFeeTask | Task processing state | Fee Database |
+| CalendarConstraint| Holiday rules | Calendar Service |
+| FeeReport | Inquiry data | Report Database |
 
 ## I-8. Integration (label sync vs async on Container)
 
 | Pattern | Mechanism | Example on your landscape |
 |---------|-----------|---------------------------|
-| Sync | REST API | Execution Engine gọi trích nợ sang Core Banking |
-| Sync | REST API | Fee Inquiry Web App gọi Fee Report API |
-| Async | Message Queue / Event | Execution Engine báo Notification Service gửi SMS |
-| Async | Batch / File | Source Systems gửi file danh sách sang Fee Ingestion Service |
-| Sync | REST API | Calendar Gate gọi Calendar Service |
+| Sync | REST API | `Execution Engine` calls `Core Banking` |
+| Sync | REST API | `Fee Inquiry Web App` calls `Fee Report API` via `API Gateway` |
+| Sync | REST API | `Calendar Gate` calls `Calendar Service` |
+| Async | File/Batch | `Digital Channel Source` sends files to `Fee Ingestion Service` |
+| Async | Message Event | `Execution Engine` publishes to `Message Broker`; `Notification Service` consumes |
 
 ## I-9. Deployment
 
 | Location | What runs there |
 |----------|-----------------|
-| Internal App Zone | Fee Inquiry Web App, Fee Report API, Fee Ingestion Service, Fee Processing Engine, Calendar Gate, Execution Engine, Retry Scheduler, Notification Service |
-| Internal Data Zone | Fee Database, Report Database |
+| Internal App Zone | `Fee Inquiry Web App`, `Fee Report API`, `Fee Ingestion Service`, `Fee Processing Engine`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `API Gateway`, `Message Broker` |
+| Internal Data Zone | `Fee Database`, `Report Database` |
 
-**Forbidden path:** Fee Inquiry Web App KHÔNG ĐƯỢC query trực tiếp vào Core Banking hoặc Fee Database (phải qua Fee Report API & Report Database). Execution Engine KHÔNG ĐƯỢC chạy mà chưa thông qua Calendar Gate.
+**Forbidden path:** `Fee Inquiry Web App` must not read from `Fee Database` or `Core Banking`.
 
 ## I-10. Constraints (must appear on Motivation and on decision branches)
 
 | ID | Constraint | Effect on the process |
 |----|------------|------------------------|
-| CON.1 (BR-01) | Phí > 0 | Lọc và loại bỏ các RawFeeRecord có số tiền <= 0 sau miễn giảm. |
-| CON.2 (BR-02) | Chặn lịch (Lễ, Mùng 1 Âm) | Chuyển trạng thái task sang Rescheduled, không gửi lệnh Core. |
-| CON.3 (BR-03) | AutoRetry Max 10 | Task lặp lại luồng trích nợ tối đa 10 lần, quá 10 lần -> Failed_Permanently. |
-| CON.4 (BR-04) | Bắt buộc gửi SMS | Kích hoạt Notification Service ngay khi nhận kết quả thành công từ Core. |
-| CON.5 (A5) | Read/Write Split | Dữ liệu UI đọc từ Report Database, tách biệt với luồng ghi trích nợ. |
+| CON.1 | Fee > 0 | Filter and discard fees <= 0 after discount. |
+| CON.2 | Holiday/Lunar Block | Block debits on holidays/lunar 1st; move task to Rescheduled. |
+| CON.3 | AutoRetry Max 10 | Stop retrying and mark Failed_Permanently after 10 insufficient funds errors. |
+| CON.4 | SMS Notification | Send SMS immediately after successful core debit. |
+| CON.5 | CQRS Reporting | UI queries must use the read store, separating from the debit write flow. |
 
 ## I-11. Named use cases for UML (not every component)
 
 | Use case | Happy path | At least one exception (`alt`) |
 |----------|------------|--------------------------------|
-| UC-Ingestion | Tiếp nhận, kiểm tra Params, tạo Task phí >0 | `alt`: Phí <= 0 (Discard) |
-| UC-Execution | Qua Calendar Gate, gọi Core thành công, gửi SMS | `alt`: Ngày Lễ (Reschedule); Lỗi số dư (To Retry) |
-| UC-AutoRetry | Retry Scheduler chạy, gọi Core thành công | `alt`: Vượt quá 10 lần (Fail Permanently) |
+| UC-Ingestion | Ingest lists, check params, create task | `alt`: Fee <= 0 (Discard) |
+| UC-Execution | Check calendar, debit core, publish event | `alt`: Holiday (Reschedule), Insufficient funds (To Retry) |
+| UC-AutoRetry | Poll retrying tasks, execute debit | `alt`: Exceed max 10 retries (Fail permanently) |
+| UC-Inquiry | `Bank Staff` views report via `Fee Inquiry Web App` | `alt`: Empty result / store lag |
 
-**One container for optional C4 Component:** Execution Engine
+**One container for optional C4 Component:** `Execution Engine`

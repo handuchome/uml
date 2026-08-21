@@ -188,3 +188,23 @@ flowchart TD
     ReturnEmpty --> Display
     Display --> End([End])
 ```
+
+## 6. G6 Coverage Checklist
+*Xác nhận: Mỗi trạng thái chuyển tiếp (transition) và nhánh ngoại lệ (`alt`) đều đã có kịch bản kiểm thử dự kiến (planned test).*
+
+**Độ phủ State Transitions (đối chiếu TS-xx từ Lab 3):**
+- [x] Transition: `Created` -> `Pending_Calendar` (Test ID: TS-02)
+- [x] Transition: `Pending_Calendar` -> `Pending_Execution` (Test ID: TS-05)
+- [x] Transition: `Pending_Calendar` -> `Rescheduled` (Test ID: TS-04)
+- [x] Transition: `Rescheduled` -> `Pending_Calendar` (Test ID: TS-09)
+- [x] Transition: `Pending_Execution` -> `Retrying` (Test ID: TS-07)
+- [x] Transition: `Pending_Execution` -> `Completed` (Test ID: TS-08)
+- [x] Transition: `Retrying` -> `Pending_Execution` (Test ID: TS-10)
+- [x] Transition: `Retrying` -> `Failed_Permanently` (Test ID: TS-12)
+
+**Độ phủ Sequence Diagram `alt` branches:**
+- [x] UC-Ingestion `alt`: Fee <= 0 (CON.1) (Test ID: TS-01)
+- [x] UC-Execution `alt`: Holiday/Lunar Block (CON.2) (Test ID: TS-03)
+- [x] UC-Execution `alt`: Insufficient Funds (Test ID: TS-06)
+- [x] UC-AutoRetry `alt`: Exceed max 10 retries (CON.3) (Test ID: TS-11)
+- [x] UC-Inquiry `alt`: Empty Result (Thuộc nghiệp vụ UI/Inquiry)

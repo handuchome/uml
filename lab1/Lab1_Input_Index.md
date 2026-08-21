@@ -17,7 +17,7 @@
 | Product | Fee Collection Hub |
 | Contract | API Contracts for source ingestion, core debit execution, and SMS trigger. |
 | Baseline → target | Fragmented manual collection → Centralized, automated, compliant collection engine with CQRS reporting. |
-| In scope | `Digital Channel Source`, `Card Channel Source`, `Corporate Channel Source`, `Fee Ingestion Service`, `Fee Processing Engine`, `Params System`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `SMS Gateway`, `Fee Report API`, `Fee Inquiry Web App`, `Fee Database`, `Report Database`, `API Gateway`, `Message Broker`. |
+| In scope | `API Gateway`, `Message Broker`, `Fee Ingestion Service`, `Fee Processing Engine`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `Report Projector`, `Fee Report API`, `Fee Inquiry Web App`, `Fee Database`, `Report Database`. |
 | Out of scope | Ledger accounting, OTC cash collection, refunds, param creation/management, complex IAM. |
 
 ## I-2. Actors
@@ -51,6 +51,7 @@
 | Execution Engine | Communicate with Core Banking for debits. |
 | Retry Scheduler | Schedule AutoRetry for insufficient fund tasks. |
 | Notification Service | Consume success events and trigger SMS Gateway. |
+| Report Projector | Sync state from Fee Database to Report Database. |
 | Fee Report API | Provide backend reporting data (Read Store). |
 | Fee Inquiry Web App | Provide the UI for Bank Staff. |
 | Fee Database | Store main processing state (Write Store). |
@@ -60,13 +61,13 @@
 
 **Object:** `ProcessedFeeTask`
 
-1. `Fee Ingestion Service` receives lists from `Digital Channel Source`, `Card Channel Source`, and `Corporate Channel Source`.
-2. `Fee Processing Engine` requests rules from `Params System`, calculates amounts, and creates `ProcessedFeeTask` for amounts > 0.
+1. `Fee Ingestion Service` receives data from `Digital Channel Source`, `Card Channel Source`, and `Corporate Channel Source`.
+2. `Fee Processing Engine` checks rules from `Params System` and creates `ProcessedFeeTask` for amounts > 0.
 3. `Calendar Gate` validates the current date; allows processing if not a holiday/lunar 1st.
 4. `Execution Engine` sends a debit command to `Core Banking` successfully.
 5. `Execution Engine` publishes a success event to `Message Broker`.
-6. `Notification Service` consumes the event and commands `SMS Gateway` to send an SMS to `Customer`.
-7. System syncs state to `Report Database`, allowing `Bank Staff` to view results via `Fee Inquiry Web App` and `Fee Report API`.
+6. `Notification Service` consumes the event from `Message Broker` and commands `SMS Gateway` to send an SMS to `Customer`.
+7. `Report Projector` syncs state to `Report Database`, allowing `Bank Staff` to view results via `Fee Inquiry Web App` and `Fee Report API`.
 
 **Principle / hard rules:**
 - Absolutely no debit commands to `Core Banking` on lunar 1st or holidays.
@@ -113,15 +114,16 @@
 | Sync | REST API | `Calendar Gate` calls `Calendar Service` |
 | Async | File/Batch | `Digital Channel Source` sends files to `Fee Ingestion Service` |
 | Async | Message Event | `Execution Engine` publishes to `Message Broker`; `Notification Service` consumes |
+| Sync | JDBC/Polling | `Report Projector` reads `Fee Database` and writes to `Report Database` |
 
 ## I-9. Deployment
 
 | Location | What runs there |
 |----------|-----------------|
-| Internal App Zone | `Fee Inquiry Web App`, `Fee Report API`, `Fee Ingestion Service`, `Fee Processing Engine`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `API Gateway`, `Message Broker` |
+| Internal App Zone | `Fee Inquiry Web App`, `Fee Report API`, `Fee Ingestion Service`, `Fee Processing Engine`, `Calendar Gate`, `Execution Engine`, `Retry Scheduler`, `Notification Service`, `Report Projector`, `API Gateway`, `Message Broker` |
 | Internal Data Zone | `Fee Database`, `Report Database` |
 
-**Forbidden path:** `Fee Inquiry Web App` must not read from `Fee Database` or `Core Banking`.
+**Forbidden path:** `Fee Inquiry Web App` must not read from `Fee Database` or `Core Banking`. `Execution Engine` must not execute debit until `Calendar Gate` check has passed.
 
 ## I-10. Constraints (must appear on Motivation and on decision branches)
 
@@ -137,9 +139,9 @@
 
 | Use case | Happy path | At least one exception (`alt`) |
 |----------|------------|--------------------------------|
-| UC-Ingestion | Ingest lists, check params, create task | `alt`: Fee <= 0 (Discard) |
-| UC-Execution | Check calendar, debit core, publish event | `alt`: Holiday (Reschedule), Insufficient funds (To Retry) |
-| UC-AutoRetry | Poll retrying tasks, execute debit | `alt`: Exceed max 10 retries (Fail permanently) |
-| UC-Inquiry | `Bank Staff` views report via `Fee Inquiry Web App` | `alt`: Empty result / store lag |
+| UC-Ingestion | `Fee Ingestion Service` receives from `Digital Channel Source`, `Card Channel Source`, `Corporate Channel Source`; `Fee Processing Engine` checks `Params System` and creates `ProcessedFeeTask` in `Created`. | `alt`: Fee <= 0 (No `ProcessedFeeTask` created) |
+| UC-Execution | `Execution Engine` calls `Calendar Gate`; calls `Core Banking`; updates `ProcessedFeeTask` to `Completed`; publishes to `Message Broker`. | `alt`: `Calendar Gate` fails (`ProcessedFeeTask` to `Rescheduled`); `Core Banking` fails (`ProcessedFeeTask` to `Retrying`). |
+| UC-AutoRetry | `Retry Scheduler` polls `ProcessedFeeTask` in `Retrying`; `Execution Engine` calls `Core Banking`. | `alt`: Limit reached (`ProcessedFeeTask` to `Failed_Permanently`). |
+| UC-Inquiry | `Bank Staff` uses `Fee Inquiry Web App` via `API Gateway` to `Fee Report API`. | `alt`: Empty result |
 
 **One container for optional C4 Component:** `Execution Engine`

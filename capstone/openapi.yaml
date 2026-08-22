@@ -1,0 +1,35 @@
+openapi: 3.0.0
+info:
+  title: Fee Collection Hub
+  version: 1.0.0
+paths:
+  /api/ingestion/trigger:
+    post:
+      summary: Ingest fee tasks
+      responses:
+        '200':
+          description: Successfully ingested. CON.1 (Fee <= 0) handled via compensation (task discarded), returning 200 OK.
+        '400':
+          description: Empty records list
+  /api/execution/run:
+    post:
+      summary: Execute pending fee tasks (Calendar Gate + Execution Engine)
+      responses:
+        '200':
+          description: Execution triggered. CON.2 (Holiday) compensated as Rescheduled. CON.3 (Insufficient Funds) compensated as Retrying. All return 200 OK.
+  /api/retry/poll:
+    post:
+      summary: Poll and retry failed tasks
+      responses:
+        '200':
+          description: Polling triggered. CON.3 max retry limit compensated as Failed_Permanently, returning 200 OK.
+        '404':
+          description: No tasks found to retry
+  /api/reports:
+    get:
+      summary: Query fee reports (CQRS Read via API Gateway)
+      responses:
+        '200':
+          description: Successfully retrieved reports from Report Database
+        '404':
+          description: Report not found

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.zip
+.env
+.venv
+env/
+venv/
+capstone/team1_capstone_feedback*
+
+capstone/capstone.md
+capstone/capstone-scoring.md

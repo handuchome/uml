@@ -7,7 +7,7 @@
 ---
 
 ## 1. C4 Level 1: System Context Diagram
-*Demonstrates the overarching interactions between actors, the central system, and external systems.*
+*Demonstrates the overarching interactions between actors, the central system, and external systems. Edges represent what happens, not protocols.*
 
 ```text
 Title:      C4 Context (Level 1) - Fee Collection Hub
@@ -15,9 +15,9 @@ Viewpoint:  C4 Model
 Layer(s):   Business / Context
 As-Is | To-Be | Transition:  To-Be
 Owner:      Role SA ________  Name Hà Ngọc Bắc
-RACI:       R SA__  A EA____  C Dev_  I Test
+RACI:       R Hà Ngọc Bắc  A Hàn Ngọc Đức  C Dương Đỗ Minh  I Nguyễn Nhật Trường
 Version:    v1.0  Date 2026-08-21  Status Review
-Legend:     Solid lines = Sync connections | Dashed lines = Async connections
+Legend:     Lines = Business interactions / Data flows
 RACI legend: R = draws · A = approves · C = consulted · I = informed
 Scope:      In-scope: Central Hub | Out-of-scope: Internal Hub details
 ```
@@ -53,17 +53,17 @@ Core Banking]:::external
 SMS Gateway]:::external
 
     %% High-level Context Relationships
-    Digi -. "[REQ-01] Async Ingestion" .-> Hub
-    Card -. "[REQ-01] Async Ingestion" .-> Hub
-    Corp -. "[REQ-01] Async Ingestion" .-> Hub
+    Digi -. "[REQ-01] sends fee lists" .-> Hub
+    Card -. "[REQ-01] sends fee lists" .-> Hub
+    Corp -. "[REQ-01] sends fee lists" .-> Hub
 
-    Hub -- "Sync Read" --> Params
-    Hub -- "Sync Validate" --> Cal
-    Hub -- "[REQ-03] Sync Debit" --> Core
-    Hub -. "[REQ-05] Async/Sync Trigger" .-> SMS
+    Hub -- "reads fee configuration" --> Params
+    Hub -- "checks holiday / lunar date" --> Cal
+    Hub -- "[REQ-03] debits the account" --> Core
+    Hub -. "[REQ-05] sends SMS command" .-> SMS
 
-    SMS -. "Deliver Notification" .-> Cust
-    Staff -- "[REQ-06] Sync UI Report" --> Hub
+    SMS -. "notifies of successful debit" .-> Cust
+    Staff -- "[REQ-06] views fee reports" --> Hub
 ```
 
 ---
@@ -77,7 +77,7 @@ Viewpoint:  C4 Model
 Layer(s):   Application
 As-Is | To-Be | Transition:  To-Be
 Owner:      Role SA ________  Name Hà Ngọc Bắc
-RACI:       R SA__  A EA____  C Dev_  I Test
+RACI:       R Hà Ngọc Bắc  A Nguyễn Nhật Trường  C Dương Đỗ Minh  I Hàn Ngọc Đức
 Version:    v1.0  Date 2026-08-21  Status Review
 Legend:     Solid lines = Sync | Dashed lines = Async
 RACI legend: R = draws · A = approves · C = consulted · I = informed
@@ -150,20 +150,20 @@ Report Database)]:::database
     FPE -- "Sync Read" --> Params
     FPE -- "Sync Write" --> FDB
 
-    EE -- "Sync Poll" --> FDB
-    RS -- "Sync Poll/Update" --> FDB
-
-    EE -- "Sync REST" --> CG
+    CG -- "Sync Poll/Update" --> FDB
     CG -- "Sync REST" --> Cal
+
+    EE -- "Sync Poll/Update" --> FDB
+    RS -- "Sync Poll/Update" --> FDB
 
     EE -- "[REQ-03] Sync POST /debit" --> Core
 
-    EE -. "[REQ-05] Async Event Publish" .-> MB
-    MB -. "[REQ-05] Async Event Consume" .-> NS
+    EE -. "[REQ-05] Async Publish: DebitSuccessEvent" .-> MB
+    MB -. "[REQ-05] Async Consume: DebitSuccessEvent" .-> NS
     NS -- "Sync REST/Command" --> SMS
     SMS -. "Async Delivery" .-> Cust
 
-    FDB -- "Sync JDBC Read" --> RP
+    RP -- "Sync JDBC Read" --> FDB
     RP -- "Sync JDBC Write" --> RDB
 
     Staff -- "Sync HTTPS" --> FIW

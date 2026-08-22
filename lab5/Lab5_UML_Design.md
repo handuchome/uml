@@ -31,13 +31,14 @@ stateDiagram-v2
 ### 2.1 Sequence Diagram
 ```mermaid
 sequenceDiagram
-    participant Sources as Digital / Card / Corp Channels
+    participant DCS as Digital Channel Source
     participant FIS as Fee Ingestion Service
     participant FPE as Fee Processing Engine
     participant Params as Params System
     participant DB as Fee Database
 
-    Sources->>FIS: Async FileTransfer / Batch
+    Note over DCS,FIS: (Card & Corporate sources follow identical async flow)
+    DCS->>FIS: Async FileTransfer / Batch
     FIS->>FPE: Forward raw records
     FPE->>Params: Fetch discount rules / fee config
     Params-->>FPE: Return policies
@@ -69,30 +70,28 @@ flowchart TD
 ### 3.1 Sequence Diagram
 ```mermaid
 sequenceDiagram
-    participant Poller as TaskPoller
-    participant Disp as DebitDispatcher
+    participant EE as Execution Engine
     participant Cal as Calendar Gate
     participant Core as Core Banking
     participant DB as Fee Database
     participant Broker as Message Broker
 
-    Poller->>DB: Query ProcessedFeeTask (Pending_Calendar)
-    DB-->>Poller: Return tasks
-    Poller->>Disp: Hand over tasks
-    Disp->>Cal: GET /api/calendar/check
+    EE->>DB: Query ProcessedFeeTask (Pending_Calendar)
+    DB-->>EE: Return tasks
+    EE->>Cal: GET /api/calendar/check
     alt Holiday/Lunar (CON.2)
-        Cal-->>Disp: Blocked
-        Disp->>DB: Update state to Rescheduled
+        Cal-->>EE: Blocked
+        EE->>DB: Update state to Rescheduled
     else Working Day
-        Cal-->>Disp: Allowed
-        Disp->>Core: POST /api/v1/core/debit
+        Cal-->>EE: Allowed
+        EE->>Core: POST /api/v1/core/debit
         alt Insufficient Funds
-            Core-->>Disp: 400 Error
-            Disp->>DB: Update state to Retrying
+            Core-->>EE: 400 Error
+            EE->>DB: Update state to Retrying
         else Success
-            Core-->>Disp: 200 OK
-            Disp->>DB: Update state to Completed
-            Disp->>Broker: Publish DebitSuccessEvent
+            Core-->>EE: 200 OK
+            EE->>DB: Update state to Completed
+            EE->>Broker: Publish DebitSuccessEvent
         end
     end
 ```
@@ -188,6 +187,8 @@ flowchart TD
     ReturnEmpty --> Display
     Display --> End([End])
 ```
+
+---
 
 ## 6. G6 Coverage Checklist
 *Xác nhận: Mỗi trạng thái chuyển tiếp (transition) và nhánh ngoại lệ (`alt`) đều đã có kịch bản kiểm thử dự kiến (planned test).*

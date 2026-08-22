@@ -48,39 +48,38 @@ flowchart TD
 
     %% Integrations (I-8)
     SrcDig & SrcCard & SrcCorp -- Async FileTransfer --> FIS
-    FIS -- Sync Forward --> FPE
-    FPE -- Sync Read Config --> Params
-    FPE -- Sync Write (Created) --> DB_Fee
+    FIS --> FPE
+    FPE -- Read Config --> Params
+    FPE -- Write (Created) --> DB_Fee
 
-    Exec -- Sync Poll --> DB_Fee
-    Retry -- Sync Poll / Update --> DB_Fee
+    Exec -- Poll --> DB_Fee
+    Retry -- Poll / Update --> DB_Fee
 
     Exec -- Sync REST --> CalGate
     CalGate -- Sync REST --> CalSvc
     Exec -- Sync POST --> Core
 
-    Exec -- Async Publish: DebitSuccessEvent --> Broker
-    Broker -- Async Consume: DebitSuccessEvent --> Notif
+    Exec -- Async Event --> Broker
+    Broker -- Consume --> Notif
     Notif -- Sync REST/Command --> SMS
-    SMS -- Async Delivery --> Cust
+    SMS -- Delivery --> Cust
 
     Proj -- Sync JDBC Read --> DB_Fee
     Proj -- Sync JDBC Write --> DB_Rep
 
-    Staff -- Sync HTTPS --> Web
+    Staff -- HTTPS --> Web
     Web -- Sync REST --> GW
-    GW -- Sync Route --> API_Rep
-    API_Rep -- Sync JDBC Read --> DB_Rep
+    GW -- Route --> API_Rep
+    API_Rep -- Read --> DB_Rep
 ```
 
 ---
 
 ## 2. Integration Pathways Summary
 
-*   **Ingestion Path (Async):** Channel sources push data to the `Fee Ingestion Service`. `Fee Ingestion Service` then performs a **Sync Forward** to the `Fee Processing Engine`.
+*   **Ingestion Path (Async):** Channel sources push data to the `Fee Ingestion Service`.
 *   **Validation Path (Sync):** `Fee Processing Engine` calls `Params System`; `Calendar Gate` calls `Calendar Service`.
 *   **Execution Path (Sync):** `Execution Engine` dispatches debits directly to `Core Banking`.
-*   **Event Path (Async):** `Execution Engine` publishes `DebitSuccessEvent` to `Message Broker`, which is consumed by `Notification Service` to trigger `SMS Gateway`.
+*   **Event Path (Async):** `Execution Engine` -> `Message Broker` -> `Notification Service` -> `SMS Gateway`.
 *   **CQRS Sync Path (Sync/Polling):** `Report Projector` continuously mirrors state from `Fee Database` to `Report Database`.
 *   **Inquiry Path (Sync):** `Fee Inquiry Web App` -> `API Gateway` -> `Fee Report API` -> `Report Database`.
-*   **Forbidden Paths (I-9 Validation):** It is strictly forbidden for the `Fee Inquiry Web App` to directly query the `Fee Database` or send execution commands to `Core Banking`.
